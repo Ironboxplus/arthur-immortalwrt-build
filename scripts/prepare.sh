@@ -52,6 +52,9 @@ recipe.write_text(text.replace(old, new))
 provenance['easytier_recipe_sha256'] = hashlib.sha256(recipe.read_bytes()).hexdigest()
 (root / 'artifacts/provenance.json').write_text(json.dumps(provenance, indent=2))
 PY
+# feeds update/install may invoke Kconfig before feed metadata exists and discard
+# package selections. Apply the requested seed AFTER all feeds are installed.
+cp "$repo_dir/config.seed" .config
 make defconfig 2>&1 | tee "$repo_dir/artifacts/defconfig.log"
 cp .config "$repo_dir/artifacts/config.resolved"
 cp feeds.conf.default "$repo_dir/artifacts/feeds.conf"
