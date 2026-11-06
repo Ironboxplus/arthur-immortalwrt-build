@@ -19,7 +19,9 @@ cd source
 # Prefer the explicitly locked iStore and EasyTier feeds over any duplicate recipe.
 ./scripts/feeds install -a -f -p istore
 ./scripts/feeds install -a -f -p easytier
-./scripts/feeds install -a -f -p argon
+# Argon is a single-package repository with Makefile at its root. The feed
+# scanner skips that root; expose the pinned checkout as a normal package.
+ln -s ../feeds/argon package/luci-theme-argon
 python3 - "$repo_dir" <<'PY'
 import hashlib, json, pathlib, subprocess, sys, urllib.request
 root = pathlib.Path(sys.argv[1])
