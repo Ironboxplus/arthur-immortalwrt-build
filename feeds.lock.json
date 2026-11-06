@@ -1,0 +1,62 @@
+[
+  {
+    "repo": "immortalwrt/packages",
+    "ref": "openwrt-25.12",
+    "sha": "fa25995d74a720c1c98bf6265d3dd8b4eb620d1f",
+    "name": "packages"
+  },
+  {
+    "repo": "immortalwrt/luci",
+    "ref": "openwrt-25.12",
+    "sha": "c38e5665e826f5e6e2ac9168e167ee368d0969d9",
+    "name": "luci"
+  },
+  {
+    "repo": "openwrt/routing",
+    "ref": "openwrt-25.12",
+    "sha": "625f9d8446807708bab4eef26cdc44692164818a",
+    "name": "routing"
+  },
+  {
+    "repo": "openwrt/telephony",
+    "ref": "openwrt-25.12",
+    "sha": "c58ec5a6703966dcccb53d0919698c8aba3a9ef5",
+    "name": "telephony"
+  },
+  {
+    "repo": "openwrt/video",
+    "ref": "openwrt-25.12",
+    "sha": "094bf58da6682f895255a35a84349a79dab4bf95",
+    "name": "video"
+  },
+  {
+    "repo": "laipeng668/nss-packages",
+    "ref": "NSS-12.5-K6.x",
+    "sha": "8b7ea5181762549aeb8f08a7efe9978a2e293dd4",
+    "name": "nss_packages"
+  },
+  {
+    "repo": "qosmio/sqm-scripts-nss",
+    "ref": "main",
+    "sha": "4b4ed8639229be5e70cf94b73cdf7dbc09e66d5d",
+    "name": "sqm_scripts_nss"
+  },
+  {
+    "repo": "linkease/istore",
+    "ref": "main",
+    "sha": "a97ace34f2da358a015b094d326bba2697697f2e",
+    "name": "istore"
+  },
+  {
+    "repo": "EasyTier/luci-app-easytier",
+    "ref": "main",
+    "sha": "9c51d3f8d2bfcefd039f2ff2354c6a7674293a06",
+    "name": "easytier"
+  },
+  {
+    "repo": "jerrykuku/luci-theme-argon",
+    "ref": "master",
+    "sha": "c6d63bd68aa9272e40c35cee5e615f45cc1e4eb0",
+    "name": "argon"
+  }
+]
