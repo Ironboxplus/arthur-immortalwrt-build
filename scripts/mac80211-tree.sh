@@ -4,6 +4,7 @@
 # firmware build. Used to write local patches and to prove they apply cleanly.
 #
 # usage: scripts/mac80211-tree.sh <workdir> [--with-local]
+#        SOURCE_URL=<git url> SOURCE_SHA=<commit> scripts/mac80211-tree.sh <workdir>
 #
 # <workdir>/tree is a git repo: commit "upstream" = backports + all OpenWrt/NSS
 # patches; with --with-local, patches/mac80211/nss/ath11k/*.patch from this repo
@@ -17,8 +18,10 @@ mkdir -p "$work/dl"
 work=$(cd "$work" && pwd)
 
 lock_field() { sed -n "s/.*\"$1\": *\"\\([^\"]*\\)\".*/\\1/p" "$repo_dir/source.lock.json"; }
-sha=$(lock_field commit)
-url=$(lock_field repository)
+# SOURCE_URL/SOURCE_SHA inspect another tree with the same layout (e.g. the
+# AX9000's qosmio/openwrt-ipq) instead of the locked Arthur source.
+sha=${SOURCE_SHA:-$(lock_field commit)}
+url=${SOURCE_URL:-$(lock_field repository)}
 
 src=$work/openwrt
 if [ "$(git -C "$src" rev-parse HEAD 2>/dev/null || true)" != "$sha" ]; then
@@ -33,6 +36,7 @@ fi
 pkg=$src/package/kernel/mac80211
 
 ver=$(sed -n 's/^PKG_SOURCE_VERSION:=//p' "$pkg/Makefile")
+[ -n "$ver" ] || ver=$(sed -n 's/^PKG_VERSION:=//p' "$pkg/Makefile")
 hash=$(sed -n 's/^PKG_HASH:=//p' "$pkg/Makefile")
 nss_dirs=$(sed -n 's/^NSS_PATCH:=//p' "$pkg/Makefile")
 tarball=$work/dl/backports-$ver.tar.zst
