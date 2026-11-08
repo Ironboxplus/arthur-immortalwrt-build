@@ -43,6 +43,12 @@ def main():
     forbidden = sorted(x for x in installed if re.search(r'(mwan3|multidial|ruijie|schoolrecon)', x, re.I))
     if missing or forbidden:
         raise SystemExit(f'Manifest mismatch: missing={missing}, forbidden={forbidden}')
+    # Local ath11k fixes must reach the module that ships, not only the tree.
+    modules = list((root / 'source/build_dir').glob('target-*/linux-*/mac80211-*/backports-*/drivers/net/wireless/ath/ath11k/ath11k.ko'))
+    if len(modules) != 1:
+        raise SystemExit(f'Expected one built ath11k.ko, found {len(modules)}')
+    if b'delete unacknowledged, deleting in firmware anyway' not in modules[0].read_bytes():
+        raise SystemExit('ath11k.ko lacks the band-migration peer delete fix')
     images = list(target.glob('*jdcloud_re-ss-01*sysupgrade.bin'))
     factories = list(target.glob('*jdcloud_re-ss-01*factory.bin'))
     if len(images) != 1 or len(factories) != 1:

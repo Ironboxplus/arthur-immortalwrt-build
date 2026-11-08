@@ -13,6 +13,9 @@ cp feeds.conf source/feeds.conf.default
 cp config.seed source/.config
 cp -a files source/
 chmod +x source/files/etc/uci-defaults/99-arthur-nss
+# Local fixes on top of the locked source; each patch header explains why.
+# Named 999-arthur-* so they apply after every upstream NSS patch.
+cp patches/mac80211/nss/ath11k/*.patch source/package/kernel/mac80211/patches/nss/ath11k/
 cd source
 ./scripts/feeds update -a 2>&1 | tee "$repo_dir/artifacts/feeds-update.log"
 ./scripts/feeds install -a 2>&1 | tee "$repo_dir/artifacts/feeds-install.log"
@@ -50,6 +53,8 @@ if text.count(old) != 1:
     raise SystemExit('Locked EasyTier recipe download statement changed')
 recipe.write_text(text.replace(old, new))
 provenance['easytier_recipe_sha256'] = hashlib.sha256(recipe.read_bytes()).hexdigest()
+provenance['local_patches'] = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                               for p in sorted((root / 'patches').rglob('*.patch'))}
 (root / 'artifacts/provenance.json').write_text(json.dumps(provenance, indent=2))
 PY
 # feeds update/install may invoke Kconfig before feed metadata exists and discard
