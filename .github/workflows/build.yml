@@ -112,5 +112,5 @@ jobs:
         with:
           name: arthur-${{ github.run_number }}-${{ github.run_attempt }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 2
           if-no-files-found: error
