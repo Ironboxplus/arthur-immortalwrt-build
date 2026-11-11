@@ -1,0 +1,115 @@
+From: Arthur build <arthur@localhost>
+Subject: [PATCH] ath11k: nss: delete VAPs before NSS teardown on crash recovery
+
+Seen on IPQ6018 (JDCloud RE-SS-01) with NSS offload on 2026-11-11: after a
+firmware crash (SSR) wireless clients got no traffic through ECM-accelerated
+flows, and the 2.4 GHz TCL ring stayed full (tx_desc_in_use 512/512,
+tx_hw_enqueue_fail climbing) until reboot.
+
+ath11k_core_reconfigure_on_crash() calls ath11k_nss_teardown(), which only
+stops wifili, deinits each pdev (releasing the radio dynamic interface) and
+resets NSS. The per-vif NSS VAPs are never deleted. Recovery then halts each
+radio, which only unlinks arvif from ar->arvifs, and ieee80211_restart_hw()
+calls ath11k_mac_op_add_interface() for every interface. That clears arvif,
+so arvif->nss.created is false, and a second VAP is allocated and registered
+for the same netdev. The old VAP (if_num 31 on the device) is leaked and
+stays registered for phy0-ap0; nss_cmn_get_interface_number_by_dev() returns
+the first match, so ECM keeps sending accelerated traffic to a VAP bound to
+the destroyed radio, where it is dropped.
+
+Delete the VAPs before the teardown, the same order an unload uses
+(interface removal before ath11k_core_deinit()): per radio, under
+conf_mutex, send VAP down and delete it (unregister, dealloc, clear
+created). This must run while ab->nss.enabled is still true and
+ar->nss.ctx is still valid, which ath11k_nss_pdev_deinit() clears.
+
+Locking: conf_mutex is taken and released per radio before core_lock is
+taken, never nested with it, in the same worker that takes conf_mutex
+right after in ath11k_core_post_reconfigure_recovery(). The NSS vdev
+calls here are the ones mac.c already makes under conf_mutex.
+
+The reset path (ath11k_core_reset(), e.g. simulate_fw_crash hw-restart)
+halts the radios before ath11k_core_reconfigure_on_crash() runs, emptying
+ar->arvifs, so the deletion is also done there before the halt.
+
+Not covered: AP_VLAN ext vdevs (WDS / dynamic VLAN) and mesh VAPs.
+ath11k_info() logs how many VAPs were deleted.
+
+diff --git a/drivers/net/wireless/ath/ath11k/core.c b/drivers/net/wireless/ath/ath11k/core.c
+index 5eb80d8..6e58f2d 100644
+--- a/drivers/net/wireless/ath/ath11k/core.c
++++ b/drivers/net/wireless/ath/ath11k/core.c
+@@ -2515,12 +2515,61 @@ err_firmware_stop:
+ 	return ret;
+ }
+ 
++/* Recovery re-adds every interface through ath11k_mac_op_add_interface(),
++ * which clears arvif (and so arvif->nss.created) and allocates and registers
++ * a new NSS VAP for the same netdev. ath11k_nss_teardown() releases only the
++ * radio interfaces, so without this the old VAP stays allocated and
++ * registered for the netdev, and is found first by
++ * nss_cmn_get_interface_number_by_dev(): ECM keeps accelerating flows to a
++ * VAP bound to the destroyed radio and they are dropped. Delete the VAPs
++ * while NSS is still enabled and ar->nss.ctx is still valid, i.e. before the
++ * teardown, the way interface removal does it before an unload.
++ *
++ * Takes conf_mutex per radio, never nested with core_lock.
++ */
++static void ath11k_core_nss_vdevs_delete(struct ath11k_base *ab)
++{
++#ifdef CPTCFG_ATH11K_NSS_SUPPORT
++	struct ath11k_vif *arvif;
++	struct ath11k *ar;
++	int i, ret, deleted = 0;
++
++	if (!ab->nss.enabled)
++		return;
++
++	for (i = 0; i < ab->num_radios; i++) {
++		ar = ab->pdevs[i].ar;
++		if (!ar)
++			continue;
++
++		mutex_lock(&ar->conf_mutex);
++		list_for_each_entry(arvif, &ar->arvifs, list) {
++			if (!arvif->nss.created)
++				continue;
++
++			ret = ath11k_nss_vdev_down(arvif);
++			if (ret)
++				ath11k_warn(ab, "failed to down nss vap %d for recovery: %d\n",
++					    arvif->nss.if_num, ret);
++
++			ath11k_nss_vdev_delete(arvif);
++			deleted++;
++		}
++		mutex_unlock(&ar->conf_mutex);
++	}
++
++	ath11k_info(ab, "nss: deleted %d vap(s) for recovery\n", deleted);
++#endif
++}
++
+ static int ath11k_core_reconfigure_on_crash(struct ath11k_base *ab)
+ {
+ 	int ret;
+ 
+ 	ath11k_hif_irq_disable(ab);
+ 
++	ath11k_core_nss_vdevs_delete(ab);
++
+ 	mutex_lock(&ab->core_lock);
+ 
+ 	ath11k_nss_teardown(ab);
+@@ -2795,6 +2844,11 @@ static void ath11k_core_reset(struct work_struct *work)
+ 	ath11k_coredump_collect(ab);
+ 	ath11k_core_pre_reconfigure_recovery(ab);
+ 
++	/* The reset path halts the radios (emptying ar->arvifs) before
++	 * ath11k_core_reconfigure_on_crash() runs, so delete the VAPs here.
++	 */
++	ath11k_core_nss_vdevs_delete(ab);
++
+ 	reinit_completion(&ab->reconfigure_complete);
+ 	ath11k_core_post_reconfigure_recovery(ab);
+ 

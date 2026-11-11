@@ -18,7 +18,7 @@ def main():
     must_symbols = ['TARGET_qualcommax', 'TARGET_qualcommax_ipq60xx',
                     'TARGET_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01',
                     'NSS_FIRMWARE_VERSION_12_5', 'ATH11K_MEM_PROFILE_512M',
-                    'ATH11K_NSS_SUPPORT', 'USE_APK']
+                    'ATH11K_NSS_SUPPORT', 'PACKAGE_ATH_DEBUG', 'USE_APK']
     missing_symbols = [name for name in must_symbols if name not in enabled]
     forbidden = [name for name in enabled if name.startswith('PACKAGE_') and
                  re.search(r'(mwan3|multidial|ruijie|schoolrecon)', name, re.I)]
@@ -47,8 +47,17 @@ def main():
     modules = list((root / 'source/build_dir').glob('target-*/linux-*/mac80211-*/backports-*/drivers/net/wireless/ath/ath11k/ath11k.ko'))
     if len(modules) != 1:
         raise SystemExit(f'Expected one built ath11k.ko, found {len(modules)}')
-    if b'delete unacknowledged, deleting in firmware anyway' not in modules[0].read_bytes():
-        raise SystemExit('ath11k.ko lacks the band-migration peer delete fix')
+    module = modules[0].read_bytes()
+    markers = {
+        b'delete unacknowledged, deleting in firmware anyway': 'band-migration peer delete fix',
+        b'vap(s) for recovery': 'crash recovery NSS VAP delete fix',
+        b'phy_warm_reset_reason_tx_hw_stuck': 'full PDEV_ERRS htt_stats',
+        # an ath11k_dbg() string: only present with ATH11K_DEBUG
+        b'nss vdev up tx msg success': 'ATH11K_DEBUG (ath11k_dbg compiled in)',
+    }
+    for marker, what in markers.items():
+        if marker not in module:
+            raise SystemExit(f'ath11k.ko lacks the {what}')
     images = list(target.glob('*jdcloud_re-ss-01*sysupgrade.bin'))
     factories = list(target.glob('*jdcloud_re-ss-01*factory.bin'))
     if len(images) != 1 or len(factories) != 1:

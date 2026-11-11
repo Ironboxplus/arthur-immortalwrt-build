@@ -21,7 +21,14 @@ Local source patches live in `patches/` and are copied over the locked tree by
 checks the built `ath11k.ko` carries the ath11k fix.
 `patches/mac80211/nss/ath11k/999-arthur-ath11k-nss-fix-peer-delete-on-band-migration.patch`
 fixes a client being locked out until reboot after it briefly associates to the
-other band (see its header). `scripts/mac80211-tree.sh <dir> --with-local`
+other band (see its header).
+`999-arthur-ath11k-nss-delete-vaps-on-crash-recovery.patch` deletes the NSS VAPs
+before the NSS teardown on firmware crash recovery, so the re-added interfaces do
+not leave a stale VAP that ECM keeps forwarding to.
+`999-arthur-ath11k-htt-stats-full-pdev-errs.patch` prints every PDEV_ERRS and
+WHAL_TX htt_stats field, bounded by the TLV length. `CONFIG_PACKAGE_ATH_DEBUG`
+compiles `ath11k_dbg()` in so the `debug_mask` module parameter works.
+`scripts/mac80211-tree.sh <dir> --with-local`
 rebuilds the patched mac80211 tree locally to write or re-check such patches
 without a firmware build.
 
