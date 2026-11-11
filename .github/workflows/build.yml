@@ -32,11 +32,13 @@ jobs:
           done
           df -h
       - name: Select a responsive Ubuntu mirror
-        timeout-minutes: 2
+        timeout-minutes: 3
         run: |
           best_url='https://archive.ubuntu.com/ubuntu'
           best_speed=0
-          for base in https://archive.ubuntu.com/ubuntu https://azure.archive.ubuntu.com/ubuntu http://azure.archive.ubuntu.com/ubuntu; do
+          # Mirrors outside ubuntu.com are fallbacks for runners that cannot reach *.ubuntu.com.
+          for base in https://archive.ubuntu.com/ubuntu https://azure.archive.ubuntu.com/ubuntu http://azure.archive.ubuntu.com/ubuntu \
+              https://mirrors.edge.kernel.org/ubuntu https://mirrors.mit.edu/ubuntu; do
             result=$(curl -L -s --connect-timeout 5 --max-time 15 -o /tmp/arthur-ubuntu-release -w '%{http_code} %{speed_download}' "$base/dists/noble-updates/Release" || true)
             echo "Ubuntu mirror probe: $base -> $result bytes/sec"
             read -r code speed <<< "$result"
@@ -56,9 +58,15 @@ jobs:
               if not path.exists():
                   continue
               text = path.read_text()
-              for old in ['http://azure.archive.ubuntu.com/ubuntu', 'https://azure.archive.ubuntu.com/ubuntu', 'http://archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu']:
+              for old in ['http://azure.archive.ubuntu.com/ubuntu', 'https://azure.archive.ubuntu.com/ubuntu', 'http://archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu',
+                          'http://security.ubuntu.com/ubuntu', 'https://security.ubuntu.com/ubuntu']:
                   text = text.replace(old, base)
               path.write_text(text)
+          # Runner images point the Ubuntu sources at mirror+file:/etc/apt/apt-mirrors.txt.
+          mirrors = Path('/etc/apt/apt-mirrors.txt')
+          if mirrors.exists():
+              print('Previous apt mirror list:\n' + mirrors.read_text())
+              mirrors.write_text(base + '/\n')
           PY
       - name: Update apt package indexes
         timeout-minutes: 4
